@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Admin · Family Boutique</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+</head><body>
+<header><div class="logo" onclick="location.href='index.html'">👗</div><div class="brand">Admin Panel</div>
+<span style="flex:1"></span><button class="btn alt" id="ex">← Store</button></header>
+
+<div class="panel" id="gate" style="max-width:360px;margin-top:15vh"><h3>Admin Login</h3>
+<input id="gp" type="password" placeholder="Password"><p id="ge" style="color:#d81b60"></p><button class="btn full" id="gb">Enter</button>
+<a class="btn alt full" style="display:block;text-align:center;text-decoration:none" href="index.html">← Back to customer page</a></div>
+
+<div id="app" style="display:none">
+<div class="tabs" id="tabs">
+ <span class="chip" data-tab="dash">📊 Dashboard</span><span class="chip" data-tab="usr">👥 Customers</span><span class="chip" data-tab="ord">📦 Orders</span>
+ <span class="chip" data-tab="prod">👗 Products</span><span class="chip" data-tab="cat">🏷 Categories</span><span class="chip" data-tab="ban">🖼 Banner</span>
+ <span class="chip" data-tab="set">⚙️ Settings</span><span class="chip" data-tab="cloud">☁️ Cloud Sync</span></div>
+
+<div class="panel" data-p="dash"><h3>Dashboard</h3><div class="stats" id="stats"></div>
+ <h3 style="font-size:15px">Recent Customers</h3><div id="ru"></div><h3 style="font-size:15px;margin-top:10px">Recent Orders</h3><div id="ro"></div></div>
+
+<div class="panel" data-p="usr"><h3>Registered Customers (<span id="uc">0</span>)</h3><div id="ul"></div></div>
+
+<div class="panel" data-p="ord"><h3>Order Requests (<span id="oc">0</span>)</h3><div id="ol"></div></div>
+
+<div class="panel" data-p="prod"><h3>Add Product / Deal</h3><form id="pf">
+  <input id="t" placeholder="Title" required>
+  <select id="c"></select>
+  <input id="p" type="number" min="0" placeholder="Price (Rs)" required>
+  <input id="od" type="number" min="0" placeholder="Old price (optional - shows as SALE deal)">
+  <input id="co" placeholder="Colors: Pink, Blue, Maroon">
+  <label><input type="checkbox" id="so" style="width:auto"> Sold Out</label>
+  <input id="im" type="file" accept="image/*" multiple>
+  <div class="thumbs" id="th"></div>
+  <textarea id="d" rows="4" placeholder="Description"></textarea>
+  <button class="btn full">Upload Product</button></form>
+  <h3 style="margin-top:16px">Products (<span id="pc">0</span>)</h3><div id="pl"></div></div>
+
+<div class="panel" data-p="cat"><h3>Category Manager</h3><form id="cf" style="display:flex;gap:8px"><input id="cn" placeholder="e.g. Lehenga, Maxi, Bridal" required><button class="btn">Add</button></form><div id="cl"></div></div>
+
+<div class="panel" data-p="ban"><h3>Banner Manager</h3><form id="bf">
+  <img id="bp" class="bprev" hidden alt="">
+  <input id="bi" type="file" accept="image/*">
+  <input id="bh" placeholder="Headline"><input id="bo" placeholder="Active offer text">
+  <button class="btn full">Save Banner</button><button type="button" class="btn alt full" id="bc">Remove Banner Image</button></form></div>
+
+<div class="panel" data-p="set"><h3>Store Settings</h3><form id="sf"></form></div>
+
+<div class="panel" data-p="cloud"><h3>☁️ Cloud Sync (Firebase)</h3>
+  <p><span class="dot" id="dot"></span><b id="cst">Not configured</b></p>
+  <h3 style="font-size:15px;margin-top:12px">API Settings</h3>
+  <form id="cfgf"></form>
+  <button class="btn alt full" id="tst">Test Connection</button>
+  <button class="btn full" id="push">⬆ Push local data to cloud</button>
+  <button class="btn alt full" id="pull">⬇ Pull cloud data to this device</button>
+  <h3 style="font-size:15px;margin-top:14px">Config line used by index.html</h3>
+  <textarea class="mono" id="snip" rows="3" readonly></textarea><button class="btn alt full" data-copy="snip">Copy config snippet</button>
+  <h3 style="font-size:15px;margin-top:14px">Database Rules</h3>
+  <textarea class="mono" id="rules" rows="9" readonly>{
+  "rules": {
+    "familyboutique": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}</textarea><button class="btn alt full" data-copy="rules">Copy rules</button>
+</div></div>
+
+<script>window.FB_CONFIG={"apiKey":"AIzaSyAPQ0o3DG9_w3jcYznggznHfhDRTF80bf0","authDomain":"family-boutique-a0f3c.firebaseapp.com","databaseURL":"https://family-boutique-a0f3c-default-rtdb.firebaseio.com","projectId":"family-boutique-a0f3c","appId":"1:287157543231:web:234acab01b70688a25b38a"};</script>
+<script>
+const showErr=m=>{try{const d=document.createElement('div');d.className='err';d.textContent='Error: '+m;document.body.append(d)}catch{}};
+window.onerror=(m,s,l)=>showErr(m+' (line '+l+')');
+const sessionStorageOk=k=>{try{return sessionStorage.getItem(k)==='1'}catch{return false}};
+
+const $=s=>document.querySelector(s)||document.createElement('div');
+const ls=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v??d}catch{return d}};
+const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true}catch{return false}};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fail=e=>alert('Cloud sync failed: '+(e&&e.message||e));
+const rs=n=>'Rs '+Number(n||0).toLocaleString();
+
+let FB={...(window.FB_CONFIG||{})};
+try{const c=JSON.parse(localStorage.getItem('fb_config'));if(c&&c.databaseURL)FB=c}catch{}
+let db=null,online=false;
+try{if(FB.databaseURL&&typeof firebase!=='undefined'){firebase.initializeApp(FB);db=firebase.database().ref('familyboutique');
+  firebase.database().ref('.info/connected').on('value',s=>{online=!!s.val();drawCloud()})}}catch(e){console.warn(e)}
+
+const DEF=[{id:'coord',name:'✨ Co-ord Sets'},{id:'stitched',name:'👗 Stitched Suits'},{id:'unstitched',name:'🧵 Unstitched Collection'}];
+let products=ls('fb_products',[]),users=ls('fb_users',[]),orders=ls('fb_orders',[]),set=ls('fb_settings',{open:true,pass:'6907'}),
+    cats=ls('fb_cats',null)||DEF,bn=ls('fb_banner',{}),newBanner=null;
+const catName=id=>(cats.find(c=>c.id===id)||{}).name||'(no category)';
+const when=t=>t?new Date(t).toLocaleString([], {dateStyle:'short',timeStyle:'short'}):'';
+const waTo=m=>'https://wa.me/'+String(m||'').replace(/\D/g,'').replace(/^0/,'92');
+
+const enter=()=>{$('#gate').style.display='none';$('#app').style.display='block';try{sessionStorage.setItem('fb_admin','1')}catch{}};
+$('#gb').onclick=async()=>{
+  let pass=String(set.pass||'6907');
+  if(db){try{const s=await Promise.race([db.child('settings/pass').once('value'),new Promise((_,j)=>setTimeout(j,4000))]);if(s.val())pass=String(s.val())}catch{}}
+  if($('#gp').value===pass)enter();else $('#ge').textContent='Wrong password';};
+$('#gp').onkeydown=e=>{if(e.key==='Enter')$('#gb').click()};
+$('#ex').onclick=()=>{try{sessionStorage.removeItem('fb_admin')}catch{}location.href='index.html'};
+if(sessionStorageOk('fb_admin'))enter();
+function showTab(k){document.querySelectorAll('.tabs .chip').forEach(c=>c.classList.toggle('on',c.dataset.tab===k));
+  document.querySelectorAll('[data-p]').forEach(p=>p.hidden=p.dataset.p!==k)}
+$('#tabs').onclick=e=>{if(e.target.dataset.tab)showTab(e.target.dataset.tab)};
+document.addEventListener('click',async e=>{const id=e.target.dataset.copy;if(!id)return;const el=$('#'+id);
+  try{await navigator.clipboard.writeText(el.value)}catch{el.select();document.execCommand('copy')}alert('Copied ✅')});
+
+const shrink=(f,max=700)=>new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;
+  r.onload=()=>{const i=new Image();i.onerror=rej;i.onload=()=>{const k=Math.min(1,max/Math.max(i.width,i.height)),c=document.createElement('canvas');
+    c.width=i.width*k;c.height=i.height*k;c.getContext('2d').drawImage(i,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.65))};i.src=r.result};r.readAsDataURL(f)});
+
+function drawDash(){
+  try {
+    $('#stats').innerHTML=[['Products',products.length],['Sold out',products.filter(p=>p.sold).length],['Categories',cats.length],['Customers',users.length],
+      ['New orders',orders.filter(o=>o.status==='new').length],['Store',set.open===false?'CLOSED':'OPEN'],['Cloud',db?(online?'Online':'Offline'):'Off']].map(([l,v])=>`<div class="stat"><b>${v}</b>${l}</div>`).join('');
+    $('#ru').innerHTML=[...users].sort((a,b)=>(b.joined||'').localeCompare(a.joined||'')).slice(0,5).map(u=>`<div class="line"><div>👤 ${esc(u.name)} · ${esc(u.mobile)}</div></div>`).join('')||'<p>None yet.</p>';
+    $('#ro').innerHTML=[...orders].sort(byNew).slice(0,5).map(o=>`<div class="line"><div>${esc(o.name||'Guest')} · ${rs(o.total)}<br><small>${when(o.ts)}</small></div><span class="st">${esc(o.status)}</span></div>`).join('')||'<p>None yet.</p>';
+  }catch(e){}
+}
+const byNew=(a,b)=>(b.ts||0)-(a.ts||0);
+
+function drawUsers(){
+  try{$('#uc').textContent=users.length;
+  $('#ul').innerHTML=[...users].sort((a,b)=>(b.joined||'').localeCompare(a.joined||'')).map(u=>`<div class="line"><div>👤 ${esc(u.name)}<br>📱 ${esc(u.mobile)}<br><small>Joined ${u.joined?new Date(u.joined).toLocaleDateString():''}</small></div><a class="btn wa" style="text-decoration:none" target="_blank" rel="noopener" href="${waTo(u.mobile)}">Chat</a></div>`).join('')||'<p>No customers yet.</p>';}catch(e){}
+}
+
+const NEXT={new:'confirmed',confirmed:'delivered',delivered:'new'};
+function drawOrders(){
+  try{const l=[...orders].sort(byNew);$('#oc').textContent=l.length;
+  $('#ol').innerHTML=l.map(o=>`<div class="line" style="align-items:flex-start"><div>${(o.items||[]).map(i=>`${esc(i.t)} ×${i.n}`).join('<br>')}<br><b>${rs(o.total)}</b><br>
+   <small>${esc(o.name||'Guest')} ${esc(o.mobile)} · ${when(o.ts)}</small></div>
+   <div style="display:grid;gap:6px"><button class="btn alt" data-os="${o.id}">${esc(o.status)}</button>${o.mobile?`<a class="btn wa" style="text-decoration:none;text-align:center" target="_blank" rel="noopener" href="${waTo(o.mobile)}">Reply</a>`:''}<button class="btn" data-od="${o.id}">🗑</button></div></div>`).join('')||'<p>No order requests yet.</p>';}catch(e){}
+}
+$('#ol').onclick=e=>{const s=e.target.dataset.os,d=e.target.dataset.od;
+  if(s){const o=orders.find(x=>x.id===s);o.status=NEXT[o.status]||'new';sv('fb_orders',orders);if(db)db.child('orders/'+s+'/status').set(o.status).catch(fail);drawOrders();drawDash()}
+  if(d&&confirm('Delete this order?')){orders=orders.filter(x=>x.id!==d);sv('fb_orders',orders);if(db)db.child('orders/'+d).remove().catch(fail);drawOrders();drawDash()}};
+
+$('#im').onchange=async e=>{$('#th').innerHTML='';for(const f of e.target.files){try{const u=await shrink(f);$('#th').insertAdjacentHTML('beforeend',`<img src="${u}">`)}catch{}}};
+$('#pf').onsubmit=async e=>{e.preventDefault();
+  const imgs=[...$('#th').querySelectorAll('img')].map(i=>i.src);
+  if(!imgs.length)return alert('Please choose at least one image.');
+  const id='p'+Date.now();
+  const p={id,title:$('#t').value.trim(),cat:$('#c').value,price:Number($('#p').value),old:Number($('#od').value)||0,
+    colors:$('#co').value.split(',').map(x=>x.trim()).filter(Boolean),sold:$('#so').checked,imgs,desc:$('#d').value.trim(),created:Date.now()};
+  products.push(p);
+  sv('fb_products',products);
+  if(db){try{await db.child('products/'+id).set(p)}catch(err){fail(err)}}
+  e.target.reset();$('#th').innerHTML='';drawProducts();drawDash();alert('Product uploaded ✅')};
+function drawProducts(){
+  try{$('#pc').textContent=products.length;
+  $('#pl').innerHTML=products.map(p=>`<div class="line"><img src="${esc(p.imgs?.[0])}"><div>${esc(p.title)}<br><small>${esc(catName(p.cat))} · ${rs(p.price)}${p.old>p.price?' (deal)':''} · ${p.imgs?.length||0} pics</small></div>
+   <button class="btn alt" data-so="${p.id}">${p.sold?'Sold ✔':'In Stock'}</button><button class="btn" data-del="${p.id}">🗑</button></div>`).join('')||'<p>No products yet.</p>';}catch(e){}
+}
+$('#pl').onclick=e=>{const so=e.target.dataset.so,del=e.target.dataset.del;
+  if(so){const p=products.find(x=>x.id===so);p.sold=!p.sold;sv('fb_products',products);if(db)db.child('products/'+so+'/sold').set(p.sold).catch(fail);drawProducts();drawDash()}
+  if(del&&confirm('Delete this product?')){products=products.filter(x=>x.id!==del);sv('fb_products',products);if(db)db.child('products/'+del).remove().catch(fail);drawProducts();drawDash()}};
+
+const catObj=()=>Object.fromEntries(cats.map((c,i)=>[c.id,{...c,order:i}]));
+function saveCats(){sv('fb_cats',cats);if(db)db.child('categories').set(catObj()).catch(fail)}
+function drawCats(){
+  try{$('#cl').innerHTML=cats.map(c=>`<div class="line"><div>${esc(c.name)}</div><button class="btn" data-dc="${esc(c.id)}">🗑</button></div>`).join('');
+  $('#c').innerHTML=cats.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');}catch(e){}
+}
+$('#cf').onsubmit=e=>{e.preventDefault();const name=$('#cn').value.trim();if(!name)return;
+  let id=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g, '')||'c'+Date.now();
+  if(cats.some(c=>c.id===id))id+=Date.now()%1000;
+  cats.push({id,name});saveCats();$('#cn').value='';drawCats();drawProducts();drawDash()};
+$('#cl').onclick=e=>{const id=e.target.dataset.dc;if(!id)return;
+  if(cats.length<2)return alert('Keep at least one category.');
+  if(confirm('Delete this category?')){cats=cats.filter(c=>c.id!==id);saveCats();drawCats();drawProducts();drawDash()}};
+
+function drawBanner(){try{$('#bh').value=bn.head\vert{}\vert{}'';$('#bo').value=bn.offer||'';const i=newBanner||bn.img;$('#bp').hidden=!i;if(i)$('#bp').src=i}catch(e){}}
+$('#bi').onchange=async e=>{if(e.target.files[0]){try{newBanner=await shrink(e.target.files[0],1000);drawBanner()}catch{alert('Could not read image')}}};
+$('#bf').onsubmit=e=>{e.preventDefault();
+  bn={img:newBanner||bn.img||'',head:$('#bh').value.trim(),offer:$('#bo').value.trim()};newBanner=null;
+  sv('fb_banner',bn);if(db)db.child('banner').set(bn).catch(fail);drawBanner();alert('Banner saved ✅')};
+$('#bc').onclick=()=>{bn.img='';newBanner=null;$('#bi').value='';sv('fb_banner',bn);if(db)db.child('banner').set(bn).catch(fail);drawBanner()};
+
+const F=[['wa','WhatsApp number'],['phone','Shop phone'],['email','Email'],['addr','Shop address'],['desc','Short description'],['tt','TikTok link'],['fb','Facebook link'],['ig','Instagram link'],['pass','Admin password']];
+function drawSettings(){
+  try{$('#sf').innerHTML=`<label><input type="checkbox" id="open" style="width:auto" ${set.open!==false?'checked':''}> Store is OPEN</label>`+
+   F.map(([k,l])=>`<input id="f_${k}" placeholder="${l}" value="${esc(set[k]||'')}">`).join('')+'<button class="btn full">Save Settings</button>';}catch(e){}
+}
+$('#sf').onsubmit=e=>{e.preventDefault();
+  try{set.open=$('#open').checked;F.forEach(([k])=>set[k]=$('#f_'+k).value.trim());
+  if(!set.pass)set.pass='6907';
+  sv('fb_settings',set);if(db)db.child('settings').set(set).catch(fail);drawDash();alert('Saved ✅')}catch(e){}};
+
+const CK=[['apiKey','API key'],['authDomain','Auth domain'],['databaseURL','Database URL'],['projectId','Project ID'],['appId','App ID']];
+const say=(t,ok)=>{try{$('#cst').textContent=t;$('#dot').className='dot'+(ok?' on':'')}catch(e){}};
+function drawCloud(){
+  try{if(!$('#cfgf').children.length)$('#cfgf').innerHTML=CK.map(([k,l])=>`<input id="k_${k}" placeholder="${l}" value="${esc(FB[k]||'')}">`).join('')+'<button class="btn full">Save & Reconnect</button><button type="button" class="btn alt full" id="clr">Clear config</button>';
+  $('#snip').value='<script>window.FB_CONFIG='+JSON.stringify(FB)+';<\/script>';
+  if(!db)say(FB.databaseURL?'Config saved but Firebase failed':'Not configured',false);
+  else say(online?'Connected to Firebase ✅':'Configured - connecting…',online);
+  drawDash();}catch(e){}
+}
+$('#cfgf').onsubmit=e=>{e.preventDefault();const c={};CK.forEach(([k])=>c[k]=$('#k_'+k).value.trim());
+  if(!/^https:\/\/.+/.test(c.databaseURL))return alert('Database URL must start with https://');
+  sv('fb_config',c);location.reload()};
+$('#cfgf').onclick=e=>{if(e.target.id==='clr'&&confirm('Remove config?')){localStorage.removeItem('fb_config');location.reload()}};
+const need=()=>{if(db)return true;alert('Save your Firebase config first.');return false};
+$('#tst').onclick=async()=>{if(!need())return;say('Testing…',false);
+  try{const r=db.child('_ping'),t=Date.now();await Promise.race([r.set(t),new Promise((_,j)=>setTimeout(()=>j(new Error('Timed out')),8000))]);
+    const s=await r.once('value');say(s.val()===t?'Read/write test passed ✅':'Mismatch',s.val()===t)}catch(e){say('Test failed: '+e.message,false)}};
+$('#push').onclick=async()=>{if(!need())return;if(!confirm('Push local data to cloud?'))return;
+  try{await db.update({products:Object.fromEntries(products.map(p=>[p.id,p])),categories:catObj(),banner:bn,settings:set});alert('Pushed ✅')}catch(e){fail(e)}};
+$('#pull').onclick=async()=>{if(!need())return;if(!confirm('Pull cloud data to this device?'))return;
+  try{const v=(await db.once('value')).val()||{};
+    products=Object.values(v.products||{});cats=Object.values(v.categories||{}).sort((a,b)=>(a.order||0)-(b.order||0));if(!cats.length)cats=DEF;
+    bn=v.banner||{};set={...set,...(v.settings||{})};users=Object.values(v.users||{});orders=Object.values(v.orders||{});
+    sv('fb_products',products);sv('fb_cats',cats);sv('fb_banner',bn);sv('fb_settings',set);sv('fb_users',users);sv('fb_orders',orders);redraw();alert('Pulled ✅')}catch(e){fail(e)}};
+
+if(db){
+  db.child('settings').on('value',s=>{try{if(s.val()){set={...set,...s.val()};sv('fb_settings',set);if(!(document.activeElement?.id||'').startsWith('f_'))drawSettings();drawDash()}}catch(e){}},fail);
+  db.child('categories').on('value',s=>{try{const v=Object.values(s.val()||{}).sort((a,b)=>(a.order||0)-(b.order||0));if(v.length){cats=v;sv('fb_cats',cats)}drawCats();drawProducts();drawDash()}catch(e){}},fail);
+  db.child('banner').once('value',s=>{try{if(s.val()){bn=s.val();sv('fb_banner',bn);drawBanner()}}catch(e){}});
+  db.child('products').on('value',s=>{try{products=Object.values(s.val()||{});sv('fb_products',products);drawProducts();drawDash()}catch(e){}},fail);
+  db.child('users').on('value',s=>{try{users=Object.values(s.val()||{});sv('fb_users',users);drawUsers();drawDash()}catch(e){}},fail);
+  db.child('orders').on('value',s=>{try{orders=Object.values(s.val()||{});sv('fb_orders',orders);drawOrders();drawDash()}catch(e){}},fail);
+}
+function redraw(){drawDash();drawUsers();drawOrders();drawProducts();drawCats();drawBanner();drawSettings();drawCloud()}
+try{redraw()}catch(e){}
+try{showTab('dash')}catch(e){}
+</script>
+</body></html>
